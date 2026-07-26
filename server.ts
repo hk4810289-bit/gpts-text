@@ -187,8 +187,9 @@ app.use(express.json());
 
 // Logging & Auth Middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
+    const isApi = req.path.startsWith('/api') || ['/health', '/clients', '/updates', '/topups', '/logs', '/reset', '/openapi.json'].includes(req.path);
     // Exclude static assets from API logs
-    if (!req.path.startsWith('/api')) {
+    if (!isApi) {
       return next();
     }
 
@@ -223,7 +224,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
       const durationMs = Date.now() - startTime;
 
       // Do not log the GET /api/logs call itself to avoid infinite scroll loop
-      if (req.path !== '/api/logs') {
+      if (req.path !== '/api/logs' && req.path !== '/logs') {
         const logEntry: ApiLogData = {
           id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
           timestamp: new Date().toISOString(),
@@ -265,7 +266,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   // --- API ENDPOINTS ---
 
   // GET /api/health
-  app.get('/api/health', (req: Request, res: Response) => {
+  app.get(['/api/health', '/health'], (req: Request, res: Response) => {
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -275,7 +276,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   // GET /api/clients - Fetch current client list and metrics
-  app.get('/api/clients', (req: Request, res: Response) => {
+  app.get(['/api/clients', '/clients'], (req: Request, res: Response) => {
     const totalSpentUSD = clients.reduce((acc, c) => acc + c.spentUSD, 0);
     const totalSpentBDT = clients.reduce((acc, c) => acc + c.spentBDT, 0);
     const totalRemainingUSD = clients.reduce((acc, c) => acc + c.remainingBalanceUSD, 0);
@@ -297,7 +298,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   // POST /api/clients - Add a new client
-  app.post('/api/clients', requireAuth, (req: Request, res: Response) => {
+  app.post(['/api/clients', '/clients'], requireAuth, (req: Request, res: Response) => {
     const { name, company, initialBalanceUSD, usdToBdtRate } = req.body;
 
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -340,7 +341,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   // POST /api/updates - Log daily campaign results
-  app.post('/api/updates', requireAuth, (req: Request, res: Response) => {
+  app.post(['/api/updates', '/updates'], requireAuth, (req: Request, res: Response) => {
     const { clientId, clientName, spentUSD, impressions, clicks, leads, campaignStatus, notes } = req.body;
 
     let client = clients.find((c) => c.id === clientId);
@@ -427,7 +428,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   // POST /api/topups - Add client balance top-up
-  app.post('/api/topups', requireAuth, (req: Request, res: Response) => {
+  app.post(['/api/topups', '/topups'], requireAuth, (req: Request, res: Response) => {
     const { clientId, clientName, amountUSD, notes } = req.body;
 
     let client = clients.find((c) => c.id === clientId);
@@ -492,7 +493,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   // GET /api/logs - Live API Logs
-  app.get('/api/logs', (req: Request, res: Response) => {
+  app.get(['/api/logs', '/logs'], (req: Request, res: Response) => {
     res.json({
       success: true,
       totalLogs: apiLogs.length,
@@ -501,14 +502,14 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   });
 
   // DELETE /api/logs - Clear logs
-  app.delete('/api/logs', (req: Request, res: Response) => {
+  app.delete(['/api/logs', '/logs'], (req: Request, res: Response) => {
     apiLogs = [];
     saveData();
     res.json({ success: true, message: 'API logs cleared.' });
   });
 
   // POST /api/reset - Reset to seed data
-  app.post('/api/reset', requireAuth, (req: Request, res: Response) => {
+  app.post(['/api/reset', '/reset'], requireAuth, (req: Request, res: Response) => {
     clients = JSON.parse(JSON.stringify(seedClients));
     campaignUpdates = [];
     topUps = [];
