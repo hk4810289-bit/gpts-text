@@ -1,0 +1,6 @@
+{
+  "name": "Agency AI Integration Dashboard",
+  "description": "Minimalist single-page agency dashboard MVP for testing external AI agent and custom GPT actions with live API logging and OpenAPI 3.0 specification.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
