@@ -62,10 +62,12 @@ export interface ApiLogData {
 }
 
 // In-Memory Store with JSON file backup fallback
-const DATA_DIR = (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
-  ? path.join(os.tmpdir(), 'agency_data')
-  : path.join(process.cwd(), 'data');
-const DATA_FILE = path.join(DATA_DIR, 'store.json');
+const getWritableDir = () => {
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    return path.join(os.tmpdir(), 'agency_data');
+  }
+  return path.join(process.cwd(), 'data');
+};
 
 const DEFAULT_RATE = 122.50; // 1 USD = 122.50 BDT
 
@@ -144,14 +146,20 @@ let apiLogs: ApiLogData[] = [];
 // Load data function
 function loadStoredData() {
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+    const primaryFile = path.join(getWritableDir(), 'store.json');
+    const fallbackFile = path.join(process.cwd(), 'data', 'store.json');
+    let targetFile = primaryFile;
+    if (!fs.existsSync(targetFile) && fs.existsSync(fallbackFile)) {
+      targetFile = fallbackFile;
+    }
+    if (fs.existsSync(targetFile)) {
+      const raw = fs.readFileSync(targetFile, 'utf-8');
       const parsed = JSON.parse(raw);
       clients = parsed.clients || seedClients;
       campaignUpdates = parsed.campaignUpdates || [];
       topUps = parsed.topUps || [];
       apiLogs = parsed.apiLogs || [];
-      console.log('Loaded agency data from store.json');
+      console.log('Loaded agency data from', targetFile);
     } else {
       clients = seedClients;
       saveData();
@@ -164,16 +172,24 @@ function loadStoredData() {
 
 // Save data function
 function saveData() {
+  const content = JSON.stringify({ clients, campaignUpdates, topUps, apiLogs: apiLogs.slice(0, 100) }, null, 2);
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    const dir = getWritableDir();
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(
-      DATA_FILE,
-      JSON.stringify({ clients, campaignUpdates, topUps, apiLogs: apiLogs.slice(0, 100) }, null, 2)
-    );
+    fs.writeFileSync(path.join(dir, 'store.json'), content);
   } catch (err) {
-    console.error('Error saving store.json:', err);
+    try {
+      const tmpDir = path.join(os.tmpdir(), 'agency_data');
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(tmpDir, 'store.json'), content);
+    } catch (tmpErr) {
+      // Memory fallback if filesystem is completely read-only
+      console.warn('In-memory mode active (filesystem read-only)');
+    }
   }
 }
 
