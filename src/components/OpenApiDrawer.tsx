@@ -27,12 +27,18 @@ export const OpenApiDrawer: React.FC<OpenApiDrawerProps> = ({
     if (isOpen) {
       setLoading(true);
       fetch('/api/openapi.json')
-        .then((res) => res.json())
+        .then(async (res) => {
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
+          }
+          return res.json();
+        })
         .then((data) => {
           setSpecJson(JSON.stringify(data, null, 2));
         })
         .catch((err) => {
-          setSpecJson(JSON.stringify({ error: 'Failed to fetch openapi.json' }, null, 2));
+          setSpecJson(JSON.stringify({ error: `Failed to fetch openapi.json: ${err.message}` }, null, 2));
         })
         .finally(() => setLoading(false));
     }

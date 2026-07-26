@@ -183,10 +183,8 @@ export const app = express();
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
 app.use(express.json());
 
-async function startServer() {
-
-  // Logging & Auth Middleware
-  app.use((req: Request, res: Response, next: NextFunction) => {
+// Logging & Auth Middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
     // Exclude static assets from API logs
     if (!req.path.startsWith('/api')) {
       return next();
@@ -701,27 +699,28 @@ async function startServer() {
     res.json(openApiSpec);
   });
 
-  // Vite Middleware for dev mode / static serve for prod mode
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+  async function startServer() {
+    // Vite Middleware for dev mode / static serve for prod mode
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req: Request, res: Response) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Agency AI Dashboard server running on http://0.0.0.0:${PORT}`);
+      console.log(`Active Bearer API Secret Token: ${SECRET_TOKEN}`);
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Agency AI Dashboard server running on http://0.0.0.0:${PORT}`);
-    console.log(`Active Bearer API Secret Token: ${SECRET_TOKEN}`);
-  });
-}
+  startServer();
 
-startServer();
-
-export default app;
+  export default app;
