@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { createServer as createViteServer } from 'vite';
+import os from 'os';
 
 const PORT = 3000;
 const SECRET_TOKEN = process.env.API_SECRET_TOKEN || 'MY_SECRET_TOKEN';
@@ -62,7 +62,9 @@ export interface ApiLogData {
 }
 
 // In-Memory Store with JSON file backup fallback
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+  ? path.join(os.tmpdir(), 'agency_data')
+  : path.join(process.cwd(), 'data');
 const DATA_FILE = path.join(DATA_DIR, 'store.json');
 
 const DEFAULT_RATE = 122.50; // 1 USD = 122.50 BDT
@@ -514,8 +516,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     res.json({ success: true, message: 'Agency data reset to initial benchmark state.' });
   });
 
-  // GET /api/openapi.json - OpenAPI 3.0 specification JSON file for ChatGPT Custom GPT Actions
-  app.get('/api/openapi.json', (req: Request, res: Response) => {
+  // GET /api/openapi.json - OpenAPI 3.1 specification JSON file for ChatGPT Custom GPT Actions
+  app.get(['/api/openapi.json', '/openapi.json'], (req: Request, res: Response) => {
     const host = req.get('host') || 'localhost:3000';
     const protocol = req.protocol || 'http';
     const serverUrl = process.env.APP_URL || `${protocol}://${host}`;
@@ -702,6 +704,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   async function startServer() {
     // Vite Middleware for dev mode / static serve for prod mode
     if (process.env.NODE_ENV !== 'production') {
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
@@ -721,6 +724,8 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     });
   }
 
-  startServer();
+  if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    startServer();
+  }
 
   export default app;
