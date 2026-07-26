@@ -177,12 +177,13 @@ function saveData() {
 
 loadStoredData();
 
-async function startServer() {
-  const app = express();
+export const app = express();
 
-  // Open CORS
-  app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
-  app.use(express.json());
+// Open CORS
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
+app.use(express.json());
+
+async function startServer() {
 
   // Logging & Auth Middleware
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -722,3 +723,5 @@ async function startServer() {
 }
 
 startServer();
+
+export default app;
