@@ -286,8 +286,32 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   // --- API ENDPOINTS ---
 
+  // GET / or /api - Root API Information
+  app.get(['/', '/api'], (req: Request, res: Response, next: NextFunction) => {
+    if (req.accepts('html') && req.path === '/') {
+      return next();
+    }
+    if (!Array.isArray(clients)) clients = seedClients;
+    res.json({
+      status: 'ok',
+      name: 'Agency Performance & Balance Manager API',
+      version: '1.0.0',
+      activeToken: SECRET_TOKEN,
+      clientCount: clients.length,
+      endpoints: [
+        '/api/clients',
+        '/api/updates',
+        '/api/topups',
+        '/api/logs',
+        '/api/openapi.json',
+        '/api/health'
+      ]
+    });
+  });
+
   // GET /api/health
   app.get(['/api/health', '/health'], (req: Request, res: Response) => {
+    if (!Array.isArray(clients)) clients = seedClients;
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -298,10 +322,11 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
   // GET /api/clients - Fetch current client list and metrics
   app.get(['/api/clients', '/clients'], (req: Request, res: Response) => {
-    const totalSpentUSD = clients.reduce((acc, c) => acc + c.spentUSD, 0);
-    const totalSpentBDT = clients.reduce((acc, c) => acc + c.spentBDT, 0);
-    const totalRemainingUSD = clients.reduce((acc, c) => acc + c.remainingBalanceUSD, 0);
-    const totalRemainingBDT = clients.reduce((acc, c) => acc + c.remainingBalanceBDT, 0);
+    if (!Array.isArray(clients)) clients = seedClients;
+    const totalSpentUSD = clients.reduce((acc, c) => acc + (c.spentUSD || 0), 0);
+    const totalSpentBDT = clients.reduce((acc, c) => acc + (c.spentBDT || 0), 0);
+    const totalRemainingUSD = clients.reduce((acc, c) => acc + (c.remainingBalanceUSD || 0), 0);
+    const totalRemainingBDT = clients.reduce((acc, c) => acc + (c.remainingBalanceBDT || 0), 0);
     const activeCampaignCount = clients.filter((c) => c.lastCampaignStatus === 'ACTIVE' || c.lastCampaignStatus === 'LEARNING').length;
 
     res.json({
@@ -734,9 +759,17 @@ app.use((req: Request, res: Response, next: NextFunction) => {
       app.use(vite.middlewares);
     } else {
       const distPath = path.join(process.cwd(), 'dist');
+      const indexPath = path.join(distPath, 'index.html');
       app.use(express.static(distPath));
       app.get('*', (req: Request, res: Response) => {
-        res.sendFile(path.join(distPath, 'index.html'));
+        if (fs.existsSync(indexPath)) {
+          res.sendFile(indexPath);
+        } else {
+          res.status(404).json({
+            error: 'Not Found',
+            message: `Endpoint ${req.originalUrl || req.url} not found`,
+          });
+        }
       });
     }
 
