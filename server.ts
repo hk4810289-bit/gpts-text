@@ -225,24 +225,29 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
       // Do not log the GET /api/logs call itself to avoid infinite scroll loop
       if (req.path !== '/api/logs' && req.path !== '/logs') {
-        const logEntry: ApiLogData = {
-          id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-          timestamp: new Date().toISOString(),
-          method: req.method,
-          endpoint: req.originalUrl || req.path,
-          status: res.statusCode,
-          authenticated,
-          requestBody: req.body && Object.keys(req.body).length > 0 ? req.body : undefined,
-          responseBody: responseBody,
-          ip: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || '127.0.0.1',
-          durationMs,
-        };
+        try {
+          const clientIp = (req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || '127.0.0.1';
+          const logEntry: ApiLogData = {
+            id: 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            timestamp: new Date().toISOString(),
+            method: req.method,
+            endpoint: req.originalUrl || req.path,
+            status: res.statusCode,
+            authenticated,
+            requestBody: req.body && Object.keys(req.body).length > 0 ? req.body : undefined,
+            responseBody: responseBody,
+            ip: clientIp,
+            durationMs,
+          };
 
-        apiLogs.unshift(logEntry);
-        if (apiLogs.length > 200) {
-          apiLogs = apiLogs.slice(0, 200);
+          apiLogs.unshift(logEntry);
+          if (apiLogs.length > 200) {
+            apiLogs = apiLogs.slice(0, 200);
+          }
+          saveData();
+        } catch (logErr) {
+          console.error('Error writing API log:', logErr);
         }
-        saveData();
       }
 
       return originalSend.apply(res, arguments as any);
